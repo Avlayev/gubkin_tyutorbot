@@ -4,8 +4,12 @@ import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command, BaseFilter
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+import logging
+from dotenv import load_dotenv
 
-BOT_TOKEN = "8287691451:AAHOOR3LvsEbr6IsPnSC7ygvtUT5Lze20Wc"
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+# BOT_TOKEN = "8287691451:AAHOOR3LvsEbr6IsPnSC7ygvtUT5Lze20Wc"
 
 # ------------ ADMIN ID ------------
 ADMINS = {7345258559}
@@ -23,7 +27,7 @@ TUTORS = {
 selected_tutor = {}     # Родитель → выбранный тьютор
 last_parent = {}        # Тьютор → последний родитель
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
 
 os.makedirs("chat_logs", exist_ok=True)
