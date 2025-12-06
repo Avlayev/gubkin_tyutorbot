@@ -1,131 +1,16 @@
-# import asyncio
-# from aiogram import Bot, Dispatcher, types
-# from aiogram.filters import Command
-# from aiogram.utils.keyboard import InlineKeyboardBuilder
-# from aiogram.filters import BaseFilter
-# from aiogram import types
-
-# BOT_TOKEN = "7691876985:AAF00PYw5m2W-tqcr_NnxcT5_KVwJ7SxoUA"
-
-# # Tyutorlar ro'yxati (nom : telegram user id)
-# TUTORS = {
-#     "Gulhayo A": 5361061503, #gulhayo
-#     "Doniyor B": 6642417048, #doniyor
-#     "Elbobo C": 920022557 #ELbobo
-# }
-
-# # Ota-ona → tanlangan tyutor
-# selected_tutor = {}
-
-# # Tyutor → ota-ona (oxirgi xabar yuborgan ota-ona)
-# last_parent_message = {}
-
-# bot = Bot(token=BOT_TOKEN)
-# dp = Dispatcher()
-
-# class IsTutor(BaseFilter):
-#     async def __call__(self, message: types.Message) -> bool:
-#         return message.from_user.id in TUTORS.values()
-
-# # ------------------------- /start -------------------------
-# @dp.message(Command("start"))
-# async def start_handler(msg: types.Message):
-#     # Agar tyutor bo‘lsa → hech qanday menyu chiqarmaymiz
-#     if msg.from_user.id in TUTORS.values():
-#         await msg.answer("Salom, tyutor! Sizga hech qanday menyu chiqmaydi.")
-#         return
-
-#     # Ota-ona bo‘lsa → tyutorlar ro‘yxati chiqariladi
-#     kb = InlineKeyboardBuilder()
-#     for name in TUTORS:
-#         kb.button(text=name, callback_data=name)
-#     kb.adjust(1)
-
-#     await msg.answer(
-#         "Assalomu alaykum!\nIltimos, tyutoringizni tanlang:",
-#         reply_markup=kb.as_markup()
-#     )
-
-
-# # ----------------------- Tyutor tanlash (ota-ona) -----------------------
-# @dp.callback_query()
-# async def choose_tutor(call: types.CallbackQuery):
-#     user_id = call.from_user.id
-#     if user_id in TUTORS.values():  # tyutorlar callbackga tushmasin
-#         return
-
-#     tutor_name = call.data
-#     tutor_id = TUTORS[tutor_name]
-#     selected_tutor[user_id] = tutor_id
-
-#     await call.message.answer(f"Siz {tutor_name} tyutorini tanladingiz.\nEndi xabaringizni yozing.")
-#     await call.answer()
-
-
-# # ------------------ Tyutor → Ota-ona javobi ------------------
-# @dp.message(IsTutor())
-# async def tutor_reply(msg: types.Message):
-#     tutor_id = msg.from_user.id
-
-#     if tutor_id in last_parent_message:
-#         parent_id = last_parent_message[tutor_id]
-
-#         await bot.send_message(
-#             chat_id=parent_id,
-#             text=f"📨 Tyutordan javob:\n\n{msg.text}"
-#         )
-
-#         await msg.answer("✔ Javob ota-onaga yuborildi!")
-#     else:
-#         await msg.answer("Hozircha ota-onadan xabar yo‘q.")
-
-
-# # ------------------ Ota-ona → Tyutor xabari ------------------
-# @dp.message()
-# async def parent_to_tutor(msg: types.Message):
-#     user_id = msg.from_user.id
-
-#     # Agar tyutor bo‘lsa → bu handler ishlamasin
-#     if user_id in TUTORS.values():
-#         return
-
-#     if user_id not in selected_tutor:
-#         await msg.answer("Iltimos, avval /start orqali tyutorni tanlang.")
-#         return
-
-#     tutor_id = selected_tutor[user_id]
-#     last_parent_message[tutor_id] = user_id  # tyutor kimga javob berishi kerak
-
-#     await bot.send_message(
-#         chat_id=tutor_id,
-#         text=f"📩 Ota-onadan xabar:\n{msg.text}"
-#     )
-
-#     await msg.answer("✔ Xabar yuborildi!")
-
-
-# # --------------------------- MAIN ---------------------------
-# async def main():
-#     await bot.delete_webhook(drop_pending_updates=True)
-#     print("Bot ishga tushdi...")
-#     await dp.start_polling(bot)
-
-
-# if __name__ == "__main__":
-#     asyncio.run(main())
-
-# pro_tutor_bot.py
-
+# ADMIN_ID = 7345258559
 import asyncio
-from aiogram import Bot, Dispatcher, types
+import os
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command, BaseFilter
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 BOT_TOKEN = "8287691451:AAHOOR3LvsEbr6IsPnSC7ygvtUT5Lze20Wc"
 
+# ------------ ADMIN ID ------------
+ADMINS = {7345258559}
 
-
-# ------------------- TUTORLAR -------------------
+# ------------ СПИСОК ТЬЮТОРОВ ------------
 TUTORS = {
     "Сафаров Шерзод Тожиевич": 627589541,
     "Аминова Самира Максудовна": 1879601730,
@@ -135,217 +20,188 @@ TUTORS = {
     "admin": 920022557
 }
 
-# ------------------- ADMIN ---------------------
-ADMIN_IDS = {7345258559}   # admin id lar
-
-# Ota-ona → tanlangan tyutor
-selected_tutor = {}
-
-# Tyutor → oxirgi yozgan ota-ona
-last_parent_message = {}
-
-
-# ============ FILTER =============
-class IsTutor(BaseFilter):
-    async def __call__(self, msg: types.Message) -> bool:
-        return msg.from_user.id in TUTORS.values()
-
-
-class IsAdmin(BaseFilter):
-    async def __call__(self, msg: types.Message) -> bool:
-        return msg.from_user.id in ADMIN_IDS
-
+selected_tutor = {}     # Родитель → выбранный тьютор
+last_parent = {}        # Тьютор → последний родитель
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+os.makedirs("chat_logs", exist_ok=True)
 
-# ============ START =============
+
+# =============== ФИЛЬТР: ТЬЮТОР ==================
+class IsTutor(BaseFilter):
+    async def __call__(self, message: types.Message) -> bool:
+        return message.from_user.id in TUTORS.values()
+
+
+# =============== ЛОГИ АДМИНУ ==================
+async def log_to_admin(text: str, msg: types.Message = None):
+    for admin_id in ADMINS:
+        try:
+            await bot.send_message(admin_id, text)
+
+            if msg:
+                if msg.photo:
+                    await bot.send_photo(admin_id, msg.photo[-1].file_id)
+                elif msg.video:
+                    await bot.send_video(admin_id, msg.video.file_id)
+                elif msg.voice:
+                    await bot.send_voice(admin_id, msg.voice.file_id)
+                elif msg.video_note:
+                    await bot.send_video_note(admin_id, msg.video_note.file_id)
+                elif msg.document:
+                    await bot.send_document(admin_id, msg.document.file_id)
+
+        except:
+            pass
+
+
+# =============== СОХРАНЕНИЕ ЛОГА ====================
+def save_log(user_id, role, text, username=None):
+    """Username ham saqlanadi"""
+    with open(f"chat_logs/{user_id}.txt", "a", encoding="utf-8") as file:
+        if username:
+            file.write(f"[{role}] ({username}) {text}\n")
+        else:
+            file.write(f"[{role}] {text}\n")
+
+
+# =============== /start ==============================
 @dp.message(Command("start"))
-async def start_handler(msg: types.Message):
+async def start(msg: types.Message):
+    user_id = msg.from_user.id
 
     # Admin
-    if msg.from_user.id in ADMIN_IDS:
-        await msg.answer("Админ-панель готова. Команды будут добавлены позже.")
-        return
+    if user_id in ADMINS:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="📁 Просмотреть все чаты", callback_data="logs")
+        kb.adjust(1)
+        return await msg.answer("👨‍💼 Админ-панель", reply_markup=kb.as_markup())
 
-    # Tyutor
-    if msg.from_user.id in TUTORS.values():
-        await msg.answer("Здравствуйте, тьютор! Вы можете отвечать родителям.")
-        return
+    # Тьютор
+    if user_id in TUTORS.values():
+        return await msg.answer("👋 Здравствуйте, тьютор! Сообщения будут приходить напрямую от родителей.")
 
-    # Ota-ona
+    # Родителю показать список тьюторов
     kb = InlineKeyboardBuilder()
     for name in TUTORS:
         kb.button(text=name, callback_data=name)
     kb.adjust(1)
 
-    await msg.answer(
-        "Здравствуйте!\nВыберите тьютора:",
-        reply_markup=kb.as_markup()
-    )
+    await msg.answer("Здравствуйте!\nПожалуйста, выберите вашего тьютора:", reply_markup=kb.as_markup())
 
 
-# ============ TYUTOR TANLASH ============
+# =============== АДМИН КНОПКА ЛОГОВ ====================
+@dp.callback_query(F.data == "logs")
+async def admin_logs(call: types.CallbackQuery):
+    files = os.listdir("chat_logs")
+
+    if not files:
+        return await call.message.answer("📁 Пока что нет сохранённых чатов.")
+
+    for file in files:
+        user_id = int(file.replace(".txt", ""))
+
+        # Get username from Telegram
+        try:
+            user = await bot.get_chat(user_id)
+            username = user.username or f"{user.first_name} {user.last_name or ''}"
+        except:
+            username = "Неизвестно"
+
+        with open(f"chat_logs/{file}", "r", encoding="utf-8") as f:
+            content = f.read()
+
+        await call.message.answer(
+            f"📄 Чат с пользователем:\n"
+            f"ID: {user_id}\n"
+            f"Имя: @{username if user.username else username}\n\n"
+            f"{content}"
+        )
+
+
+# =============== РОДИТЕЛЬ ВЫБИРАЕТ ТЬЮТОРА ==============
 @dp.callback_query()
 async def choose_tutor(call: types.CallbackQuery):
-
     user_id = call.from_user.id
 
-    # Admin va tyutor tanlamasin
-    if user_id in ADMIN_IDS or user_id in TUTORS.values():
-        await call.answer()
-        return
+    if user_id in ADMINS or user_id in TUTORS.values():
+        return await call.answer()
 
     tutor_name = call.data
     tutor_id = TUTORS[tutor_name]
 
     selected_tutor[user_id] = tutor_id
 
-    await call.message.answer(
-        f"Вы выбрали тьютора: {tutor_name}.\nТеперь отправьте сообщение."
-    )
+    await call.message.answer(f"Вы выбрали тьютора: {tutor_name}.\nМожете отправить сообщение.")
     await call.answer()
 
+    await log_to_admin(f"👤 Родитель {user_id} выбрал тьютора {tutor_name}.")
 
-# ============ TYUTOR → OTA-ONA ============
+
+# =============== ТЬЮТОР → РОДИТЕЛЬ ====================
 @dp.message(IsTutor())
-async def tutor_reply(msg: types.Message):
-
+async def tutor_answer(msg: types.Message):
     tutor_id = msg.from_user.id
 
-    if tutor_id not in last_parent_message:
-        await msg.answer("Пока нет сообщений от родителей.")
-        return
+    if tutor_id not in last_parent:
+        return await msg.answer("❗ Вам ещё не писали родители.")
 
-    parent_id = last_parent_message[tutor_id]
+    parent_id = last_parent[tutor_id]
 
-    # HEADER
-    header = f"📨 Ответ от тьютора:\n\n"
+    await forward_message(parent_id, msg)
 
-    # -------- TEXT --------
-    if msg.text:
-        await bot.send_message(parent_id, header + msg.text)
-        await msg.answer("✔ Ответ отправлен родителю!")
-        return
+    save_log(parent_id, "ТЬЮТОР", msg.text or "MEDIA")
+    await log_to_admin(f"📨 ТЬЮТОР → РОДИТЕЛЬ ({parent_id})", msg)
 
-    # -------- PHOTO --------
-    if msg.photo:
-        await bot.send_photo(
-            parent_id,
-            msg.photo[-1].file_id,
-            caption=header + (msg.caption or "")
-        )
-        await msg.answer("✔ Фото отправлено!")
-        return
-
-    # -------- VIDEO --------
-    if msg.video:
-        await bot.send_video(
-            parent_id,
-            msg.video.file_id,
-            caption=header + (msg.caption or "")
-        )
-        await msg.answer("✔ Видео отправлено!")
-        return
-
-    # -------- VOICE --------
-    if msg.voice:
-        await bot.send_voice(
-            parent_id,
-            msg.voice.file_id,
-            caption=header
-        )
-        await msg.answer("✔ Голосовое отправлено!")
-        return
-
-    # -------- DOCUMENT --------
-    if msg.document:
-        await bot.send_document(
-            parent_id,
-            msg.document.file_id,
-            caption=header
-        )
-        await msg.answer("✔ Документ отправлен!")
-        return
-
-    await msg.answer("Тип медиа не поддерживается.")
+    await msg.answer("✔ Сообщение отправлено.")
 
 
-# ============ OTA-ONA → TYUTOR ============
+# =============== РОДИТЕЛЬ → ТЬЮТОР ====================
 @dp.message()
-async def parent_to_tutor(msg: types.Message):
-
+async def parent_message(msg: types.Message):
     user_id = msg.from_user.id
 
-    # Admin → hech qayerga yubormaymiz
-    if user_id in ADMIN_IDS:
-        await msg.answer("Сообщение принято (админ).")
+    if user_id in TUTORS.values() or user_id in ADMINS:
         return
 
-    # Tyutor emas → ota-ona bo‘lishi kerak
     if user_id not in selected_tutor:
-        await msg.answer("Пожалуйста, сначала выберите тьютора через /start.")
-        return
+        return await msg.answer("Пожалуйста, сначала выберите тьютора командой /start.")
 
     tutor_id = selected_tutor[user_id]
-    last_parent_message[tutor_id] = user_id  # tyutor kimga javob beradi
+    last_parent[tutor_id] = user_id
 
-    header = f"📩 Сообщение от родителя:\n👤 {msg.from_user.full_name} (id: {user_id})\n\n"
+    await forward_message(tutor_id, msg)
 
-    # -------- TEXT --------
-    if msg.text:
-        await bot.send_message(tutor_id, header + msg.text)
-        await msg.answer("✔ Сообщение отправлено!")
-        return
+    username = msg.from_user.username or msg.from_user.full_name
 
-    # -------- PHOTO --------
+    save_log(user_id, "РОДИТЕЛЬ", msg.text or "MEDIA", username)
+    await log_to_admin(f"📩 РОДИТЕЛЬ → ТЬЮТОР ({user_id})", msg)
+
+    await msg.answer("✔ Сообщение отправлено.")
+
+
+# =============== ОТПРАВКА МЕДИА ====================
+async def forward_message(to, msg):
     if msg.photo:
-        await bot.send_photo(
-            tutor_id,
-            msg.photo[-1].file_id,
-            caption=header + (msg.caption or "")
-        )
-        await msg.answer("✔ Фото отправлено!")
-        return
-
-    # -------- VIDEO --------
-    if msg.video:
-        await bot.send_video(
-            tutor_id,
-            msg.video.file_id,
-            caption=header + (msg.caption or "")
-        )
-        await msg.answer("✔ Видео отправлено!")
-        return
-
-    # -------- VOICE --------
-    if msg.voice:
-        await bot.send_voice(
-            tutor_id,
-            msg.voice.file_id,
-            caption=header
-        )
-        await msg.answer("✔ Голосовое отправлено!")
-        return
-
-    # -------- DOCUMENT --------
-    if msg.document:
-        await bot.send_document(
-            tutor_id,
-            msg.document.file_id,
-            caption=header
-        )
-        await msg.answer("✔ Документ отправлен!")
-        return
-
-    await msg.answer("Тип медиа не поддерживается.")
+        await bot.send_photo(to, msg.photo[-1].file_id, caption=msg.caption or "")
+    elif msg.video:
+        await bot.send_video(to, msg.video.file_id, caption=msg.caption or "")
+    elif msg.voice:
+        await bot.send_voice(to, msg.voice.file_id)
+    elif msg.video_note:
+        await bot.send_video_note(to, msg.video_note.file_id)
+    elif msg.document:
+        await bot.send_document(to, msg.document.file_id)
+    else:
+        await bot.send_message(to, msg.text)
 
 
-# ============ MAIN ============
+# =============== MAIN =====================================
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
-    print("Bot ishga tushdi...")
+    print("BOT ЗАПУЩЕН")
     await dp.start_polling(bot)
 
 
