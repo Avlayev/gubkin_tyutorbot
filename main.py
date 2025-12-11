@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
-# BOT_TOKEN = "8287691451:AAHOOR3LvsEbr6IsPnSC7ygvtUT5Lze20Wc"
+# BOT_TOKEN = "7691876985:AAF00PYw5m2W-tqcr_NnxcT5_KVwJ7SxoUA"
 
 # ------------ ADMIN ID ------------
-ADMINS = {7345258559}
+ADMINS = {7345258559, 474777651, 6515097273}
 
 # ------------ СПИСОК ТЬЮТОРОВ ------------
 TUTORS = {
