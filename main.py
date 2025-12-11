@@ -12,7 +12,11 @@ logging.basicConfig(level=logging.INFO)
 # BOT_TOKEN = "7691876985:AAF00PYw5m2W-tqcr_NnxcT5_KVwJ7SxoUA"
 
 # ------------ ADMIN ID ------------
+<<<<<<< HEAD
 ADMINS = {7345258559, 474777651, 6515097273}
+=======
+ADMINS = {7345258559, 6515097273, 474777651}
+>>>>>>> 3455ede744ff0bee356ddbc476e6cea83ace9155
 
 # ------------ СПИСОК ТЬЮТОРОВ ------------
 TUTORS = {
